@@ -1,0 +1,168 @@
+<!--
+
+Cloudio 1.0
+
+Developped by:
+    Chen Arnon - ID 310310
+    Ofir Nesher - ID 310307
+-->
+<!doctype html>
+<html>
+
+<head>
+	<title>Cloudio</title>
+
+	<style>
+	{
+		margin: 0;
+		padding: 0;
+		box-sizing: border-box;
+	}
+
+	body {
+		font: 13px Helvetica, Arial;
+	}
+
+	#main-form {
+		background: #000;
+		padding: 3px;
+		position: fixed;
+		bottom: 0;
+		width: 100%;
+	}
+
+	#main-form input {
+		border: 0;
+		padding: 10px;
+		width: 88%;
+		margin-right: .5%;
+	}
+
+	#main-form button {
+		width: 9%;
+		background: rgb(130, 224, 255);
+		border: none;
+		padding: 10px;
+	}
+
+	#messages {
+		<!-- list-style-type: none; -->
+		margin: 0;
+		padding: 0;
+	}
+
+	#messages li {
+		padding: 5px 10px;
+	}
+
+	#messages li:nth-child(odd) {
+		background: #eee;
+	}
+</style>
+</head>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+
+<script>
+	let socket = io();
+	let dt;
+	let timeStamp;
+	let userName;
+	let dict = new Map();
+
+	let windowManager = () => {
+		userName = getUserName();
+		socketID = getSocketID();
+
+		socket.emit('login', userName, socketID); //emit 'login' event on server side (index.js)
+		socket.on('getList', getList);	// whenever server emits 'getList' event, run the getList function
+
+		// print public login message on user login
+		socket.on('login', function(userIsOnline) {
+			$('#messages').append($('<li>').text(userIsOnline));
+		});
+
+		$('#main-form').submit(function() {
+			dt = new Date();
+			timeStamp = dt.toUTCString();
+			let textSentByUser = $('#m').val();
+
+			// check if message is "\list"
+			if(textSentByUser == '\\list') {
+				listOfUsers();
+				$('#m').val('');
+				return;
+			}
+
+			// otherwise, send the text message to chat window
+			socket.emit('chat message', userName, textSentByUser, timeStamp);
+			$('#m').val('');
+			return false;
+		});
+
+		socket.on('chat message', function(msg) {
+			printToChatWindow(msg);
+		});
+
+		// print log out message to everyone and remove user object from users array
+		socket.on('userDisconnected', function(name) {
+			let msg = name + ' left the chat';
+			printToChatWindow(msg);
+			removeNameFromList(name);
+		});
+	}
+
+	let removeNameFromList = (name) => {
+		socket.emit('removeUserFromList', name);
+	}
+
+	// returns the username from the address bar, according to the query parameter "name"
+	let getUserName = () => {
+		let urlSearchParams = new URLSearchParams(window.location.search);
+		let myParam = urlSearchParams.get('name');
+		return myParam.split('=')[0];
+	}
+
+	// get list of online users
+	let getList = (msg) => {
+		printToChatWindow(msg);
+	}	
+
+	// print user message to the chat window
+	let printToChatWindow = (msg) => {
+		$('#messages').append($('<li>').text(msg));
+	}
+
+	let logout = () => {
+		let userName = getUserName();
+		socket.emit('userLogout', userName);
+	}
+
+	let listOfUsers = () => {
+		let textSentByUser = $('#m').val();
+		// when the user types '\list'
+		if (textSentByUser == '\\list') {
+			socket.emit('list', socketID);
+		}
+	}
+
+	// returns the user socket id
+	let getSocketID = () => {
+		return socket.id;
+	}
+</script>
+
+<!-- On page load, the windowManager fuction is running and on unload (close tab, refresh, or disconnect), the logout function
+-->
+<body onload="windowManager();" onunload="logout();">
+	<ul id="messages"></ul>
+
+	<!-- On every message sent, check for "\list" -->
+	<form id="main-form" type='textarea' action="javascript:listOfUsers">
+		<input id="m" autocomplete="off" />
+
+		<button>Send</button>
+	</form>
+</body>
+</html>
