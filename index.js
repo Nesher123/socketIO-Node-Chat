@@ -7,7 +7,6 @@
 let app = require("express")();
 let http = require("http").Server(app);
 let io = require("socket.io")(http);
-// let dl = require('delivery');
 let fs = require("fs");
 let APP_PORT = process.env.PORT || 3000;
 
@@ -38,12 +37,10 @@ io.on("connection", function(socket) {
   socket.on("login", loginMessage);
   //handling disconnects
   socket.on("disconnect", function() {
-    console.log(socket.id);
     let userToRemove = findUser(socket.id);
     removeUser(userToRemove);
     let msg = `${userToRemove.name} left the chat`;
     io.sockets.emit("removeUserFromList", msg);
-    console.log("here i am");
   });
 });
 
@@ -63,7 +60,7 @@ let loginMessage = user => {
 
   if (!userFound) {
     users.push(user);
-    console.log(`socket.id 2: ${user.id}`);
+    // console.log(`user.id: ${user.id}`);
 
     let newUserMessage = `${user.name} joined the chat`;
     io.emit("loginSuccessful", newUserMessage);
@@ -91,7 +88,7 @@ let isUserExists = user => {
 let removeUser = user => {
   for (i = 0; i < users.length; i++) {
     if (users[i].name == user.name) {
-      console.log("Removing " + user.name);
+      // console.log("Removing " + user.name);
       users.splice(i, 1);
       break;
     }
