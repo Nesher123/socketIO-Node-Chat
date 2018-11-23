@@ -1,150 +1,199 @@
 /******
-*
-*Cloudio 1.0
-*
-*Developped by:
-*	Chen Arnon - ID 310310
-*	Ofir Nesher - ID 310307
-*/
-let app = require('express')();
-let http = require('http').Server(app);
-let io = require('socket.io')(http);
+ *Cloudio
+ *Developped by:
+ *	Ofir Nesher - ID 310307
+ *	Chen Arnon - ID 310310
+ */
+let app = require("express")();
+let http = require("http").Server(app);
+let io = require("socket.io")(http);
 // let dl = require('delivery');
-let fs = require('fs');
-const APP_PORT = process.env.PORT || 3000;
+let fs = require("fs");
+let APP_PORT = process.env.PORT || 3000;
 
 // Array to store the list of users along with their respective socket id
 let users = [];
 
 // First command to run. Loads the login.html file
-app.get('/', function(req, res) {
-	res.sendFile(__dirname + '/login.html');
+app.get("/", function(req, res) {
+  res.sendFile(__dirname + "/login.html");
 });
 
-// When login redirects to 'chat', the server loads chat.html 
-app.get('/chat', function(req, res) {
-	res.sendFile(__dirname + '/chat.html');
+// When login redirects to 'chat', the server loads chat.html
+app.get("/chat", function(req, res) {
+  res.sendFile(__dirname + "/chat.html");
 });
 
 // Port to listen on
 http.listen(APP_PORT, function() {
-	console.log(`listening on *:${APP_PORT}`);
+  console.log(`listening on *:${APP_PORT}`);
 });
 
-io.on('connection', function(socket) {
-	socket.on('removeUserFromList', removeUser);
-	socket.on('userLogout', userLogout);
-	socket.on('chat message', chatMessage);
-	socket.on('login', loginMessage);
-	socket.on('list', listUsers);
-	socket.on('base64 file', function (file) {
-		console.log('received base64 file from' + msg.username);
-		socket.username = msg.username;
-    // socket.broadcast.emit('base64 image', //exclude sender
-    io.sockets.emit('base64 file',  //include sender
-
-    {
-    	username: socket.username,
-    	file: msg.file,
-    	fileName: msg.fileName
-    }
-
-    );
+/**
+ * Request handler
+ */
+io.on("connection", function(socket) {
+  //socket.on("removeUserFromList", removeUser);
+  socket.on("chat message", chatMessage);
+  socket.on("login", loginMessage);
+  //handling disconnects
+  socket.on("disconnect", function() {
+    console.log(socket.id);
+    let userToRemove = findUser(socket.id);
+    removeUser(userToRemove);
+    let msg = `${userToRemove.name} left the chat`;
+    io.sockets.emit("removeUserFromList", msg);
+    console.log("here i am");
+  });
 });
-});
-
 
 /******************************************************
-*					Helper functions				  *
-*******************************************************/
+ *					Helper functions				  *
+ *******************************************************/
+let findUser = id => {
+  for (let i = 0; i < users.length; i++) {
+    if ((users[i].id = id)) {
+      return users[i];
+    }
+  }
+};
 
-// When a user logout (by closing the tab for example), the userDisconnected is emitted on the chat.html file
-let userLogout = (userName) => {
-	io.emit('userDisconnected', userName);
-}
+let loginMessage = user => {
+  let userFound = isUserExists(user);
+
+  if (!userFound) {
+    users.push(user);
+    console.log(`socket.id 2: ${user.id}`);
+
+    let newUserMessage = `${user.name} joined the chat`;
+    io.emit("loginSuccessful", newUserMessage);
+  } else {
+    let destination = "/";
+    let msg = `The username "${user.name}" already exists`;
+    io.to(user.id).emit("loginUnsuccessful", destination, msg);
+  }
+};
+
+let isUserExists = user => {
+  for (let i = 0; i < users.length; i++) {
+    if (users[i].name == user.name) {
+      // console.log("username exists");
+      return true;
+    }
+  }
+
+  // console.log("username doesn't exist");
+  return false;
+};
+
+// When a user logs out (by closing the window for example), a message is emitted to chat
+// Remove user JSON object from array, according to a given socket id
+let removeUser = user => {
+  for (i = 0; i < users.length; i++) {
+    if (users[i].name == user.name) {
+      console.log("Removing " + user.name);
+      users.splice(i, 1);
+      break;
+    }
+  }
+
+  let msg = `${user.name} left the chat`;
+  io.emit("chat message", msg);
+};
 
 /**
-*	When a user sends a message:
-*		First, we need to extract the first word and check if starts with a "\" and a name of someone who's logged in.
-*		Then, if yes, we send a private message between the two.
-*		Otherwise, the message is visible to all users.
-*/
-let chatMessage = (userName, msg, time) => {
-	let firstWord = msg.replace(/ .*/,'');
-	let firstWordWithoutFirstChar = firstWord.substr(1);
-	let msgWithoutFirstWord = msg.substr(msg.indexOf(' ') + 1);
-	let sender;
-
-	if (firstWord.charAt(0) == '\\') {
-		// Find sender index in array
-		for (i = 0; i < users.length; i++) {
-			if (users[i].userName == userName) {
-				sender = i;
-			}
-		}
-
-		for (i = 0; i < users.length; i++) {
-			// check if message first words is "\someusername" (backslash \)
-			if ('\\' + users[i].userName == firstWord) {
-				// Prints the message to the recipient and sender windows only, according to their relative id and index in the users array
-				io.to(`${users[i].id}`).emit('chat message', '(' + time.toString() + ') ' + 'PRIVATE to ' + firstWordWithoutFirstChar + ' from ' + users[sender].userName + ': ' + msgWithoutFirstWord);
-				io.to(`${users[sender].id}`).emit('chat message', '(' + time.toString() + ') ' + 'PRIVATE from ' + users[sender].userName + ' to ' + firstWordWithoutFirstChar + ': ' + msgWithoutFirstWord);
-
-				return;	
-			}
-		}
-	}
-
-	// send a public message if first word of message is not "\someUserName"
-	let userMessage = getUserMessage(userName, msg, time);
-	io.emit('chat message', userMessage);
-}
-
-/**
- * On login, save user's id and username as a JSON object inside the users array
- * and emit this event to the chat.html for a message to be displayed inside the chat window
+ *	When a user sends a message:
+ *		First, we need to extract the first word and check if it's a special command.
+ *	  If it's "\list", we send a the list of all online users (only for sender).
+ *	  If it's "\private", we send a private message between to the user specified in the second word.
+ *		Otherwise, the message is visible to all users.
  */
- let loginMessage = (user, socketID) => {
- 	let userIsConnected = user + ' joined the chat';
- 	console.log(userIsConnected);
- 	users.push({
- 		id : socketID,
- 		userName : user
- 	});
+let chatMessage = (sender, msg) => {
+  let recipient;
+  let splitString = msg.split(" ");
+  let firstWord = splitString[0];
+  let time = getTime();
 
- 	io.emit('login', userIsConnected);
- }
+  switch (firstWord) {
+    case "\\list":
+      listUsers(sender);
+      break;
+
+    case "\\private":
+      let secondWord = splitString[1];
+
+      if (secondWord == sender.name) {
+        recipient = sender;
+      } else {
+        for (i = 0; i < users.length; i++) {
+          if (users[i].name == secondWord) {
+            recipient = users[i];
+            break;
+          }
+        }
+
+        if (recipient == undefined) {
+          // if here then no recipient found
+          console.log(`Recipient ${secondWord} was not found`);
+          break; // do nothing
+        }
+      }
+
+      let n = msg.indexOf(recipient.name);
+      msg = msg.substring(n + recipient.name.length + 1);
+
+      io.to(`${sender.id}`)
+        .to(`${recipient.id}`)
+        .emit(
+          "chat message",
+          `(${time}) PRIVATE from ${sender.name} to ${recipient.name}: ${msg}`
+        );
+
+      break;
+
+    default:
+      // send a public message
+      let userMessage = getUserMessage(sender, msg, time);
+      io.emit("chat message", userMessage);
+      break;
+  }
+
+  return;
+};
 
 /**
  * A user can request a list of all online users using the "\list" command
- * That list is only sent to the requestor.
+ * That list is only visible to sender.
  */
- let listUsers = (socketID) => {
- 	let onlineUsers = 'List of online users: ';
- 	for (i = 0; i < users.length; i++){
- 		if (i < users.length - 1){
- 			onlineUsers += users[i].userName + ', ';
- 		}
- 		else {
- 			onlineUsers += users[i].userName;
- 		}
- 	}
+let listUsers = sender => {
+  let onlineUsers = "List of online users: ";
+  for (i = 0; i < users.length; i++) {
+    if (i < users.length - 1) {
+      onlineUsers += users[i].name + ", ";
+    } else {
+      onlineUsers += users[i].name;
+    }
+  }
 
-	// send the list to the specific socket that typed it, according to its socketID
-	io.to(`${socketID}`).emit('getList', onlineUsers);
-}
+  // send the list to the specific socket that typed it, according to its socketID
+  io.to(sender.id).emit("chat message", onlineUsers);
+};
 
-// concatenate message together with a timestamp and the username who has posted the message
-let getUserMessage = (userName, msg, time) => {
-	return '(' + time.toString() + ') ' + userName + ': ' + msg;
-}
+// Concatenate message together with a timestamp and the username who has posted the message
+let getUserMessage = (user, msg, time) => {
+  return `(${time}) ${user.name}: ${msg}`;
+};
 
-// Remove user JSON object from array, according to a given socket id
-let removeUser = (userID) => {
-	for(i = 0; i < users.length; i++) {
-		if(users[i].id == userID) {
-			users.splice(i, 1);
-			return;
-		}
-	}
-}
+// Returns a string with the current time
+let getTime = () => {
+  let date = new Date();
+  let hour = date.getHours();
+  //hour = (hour < 10 ? "0" : "") + hour;
+
+  let min = date.getMinutes();
+  min = (min < 10 ? "0" : "") + min;
+
+  let time = hour + ":" + min;
+
+  return time;
+};

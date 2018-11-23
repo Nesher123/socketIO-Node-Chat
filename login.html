@@ -1,84 +1,55 @@
 <!--
-
-Cloudio 1.0
-
-Developped by:
-    Chen Arnon - ID 310310
-    Ofir Nesher - ID 310307
+  Cloudio
+  Developped by:
+      Chen Arnon - ID 310310
+      Ofir Nesher - ID 310307
 -->
-<!doctype html>
+<!DOCTYPE html>
 <html>
+  <title>Cloudio</title>
 
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
 
-<title>Cloud Computing ex 1</title>
-
-<body onload="dowork();">
+  <body>
     <div id="content">
-        <h1>Hello! Please login with a username</h1>
+      <h1>Hello! Please login with a username</h1>
 
-<!-- a submit button that becomes active only after some text is written in the textbox.
-    This text will be used as the username -->
-    <form class="form" id="frm" name="contactform" type="get" action="return IsValid()">
-        <input placeholder="Please enter your name" id="userInput" type="text" name="name">
-        <input class="send" id="register" type="submit" value="login" disabled="disabled" onclick="IsValid();">
-    </form>
-</div>
-</body>
+      <form
+        class="form"
+        id="frm"
+        name="contactform"
+        type="get"
+        action="return isValid()"
+      >
+        <input
+          placeholder="Please enter your name"
+          id="userInput"
+          type="text"
+          name="name"
+        />
+        <input
+          class="send"
+          id="register"
+          type="submit"
+          value="login"
+          onclick="isValid();"
+        />
+      </form>
+    </div>
+  </body>
 
-<script>
-    function isAsciiOnly(user) {
-
-        for (i = 0; i < user.length; i++)
-            if (user.charCodeAt(i) < 65 || user.charCodeAt(i) > 122)
-            {
-                if(user.charCodeAt(i) > 90 || user.charCodeAt(i) < 97)
-                {
-                    return false;   
-                }
-            }
-
-            return true;
-        }
-
-        function IsValid()
-        {
-            var isOnlyAscii = isAsciiOnly(user);
-            var f = document.getElementById("frm");
-
-            if(isOnlyAscii)
-            {
-                f.setAttribute('action',"chat");
-            }
-            else
-            {
-                alert('Invalid username, Try Again Please');
-                f.setAttribute('action',"/");
-
-            }
-        }
-        
-        var user = "";
-    // Disable the button if the textbox is empty and enable when full
-    function dowork(){
-        $(document).ready(function() {
-            $('form > input').keyup(function() {
-
-                var empty1 = false;
-                $('form > input').each(function() {
-                    if ($(this).val() === '') {
-                        empty1 = true;
-                    }
-                });
-                user = $(this).val();
-                if (empty1) {
-                    $('#register').attr('disabled', 'disabled');
-                } else {
-                    $('#register').prop("disabled", false);
-                }
-            });
-        });
+  <script>
+    function isValid() {
+      let username = document.getElementById("userInput").value;
+      let f = document.getElementById("frm");
+      if (username.indexOf(" ") >= 0 || username == "") {
+        alert("Username must be a single word, please try again");
+        f.setAttribute("action", "/");
+      } else {
+        sessionStorage.setItem("username", username);
+        f.setAttribute("action", "chat");
+      }
     }
-</script>
-
+  </script>
 </html>
