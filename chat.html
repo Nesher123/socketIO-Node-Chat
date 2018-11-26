@@ -33,15 +33,19 @@
       #main-form input {
         border: 0;
         padding: 10px;
-        width: 88%;
+        width: 80%;
         margin-right: 0.5%;
       }
 
       #main-form button {
-        width: 9%;
+        width: 7%;
         background: rgb(130, 224, 255);
         border: none;
         padding: 10px;
+      }
+
+      #fileInput {
+        width: 6% !important;
       }
 
       #messages {
@@ -58,21 +62,25 @@
         background: #eee;
       }
     </style>
-  </head>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+  </head>
 
   <script>
     const socket = io();
-    let username = sessionStorage.getItem("username");
-    let user = {
-      name: username
-    };
+    let username = sessionStorage.getItem("username"),
+      password = sessionStorage.getItem("password"),
+      user = {
+        name: username,
+        password: password
+      };
+
+    let reader = new FileReader();
 
     socket.on("connect", () => {
       user.id = socket.id;
-      console.log(`socket.id 1: ${user.id}`);
+      // console.log(`socket.id 1: ${user.id}`);
 
       socket.emit("login", user);
 
@@ -87,7 +95,28 @@
       });
 
       socket.on("chat message", function(msg) {
-        printToChatWindow(msg);
+        showOnChatWindow(msg);
+      });
+
+      //if a users uploads a file via input[type=file], the base64-encoded image will be appended to the messages list
+      socket.on("sendFile", (msg, data, type) => {
+        switch (type) {
+          case "img":
+            sendImage(msg, data);
+            break;
+
+          case "audio":
+            sendAudio(msg, data);
+            break;
+
+          case "video":
+            sendVideo(msg, data);
+            break;
+
+          case "pdf":
+            sendPDF(msg, data);
+            break;
+        }
       });
     });
 
@@ -100,18 +129,96 @@
     };
 
     // print user message to the chat window
-    let printToChatWindow = msg => {
+    let showOnChatWindow = msg => {
       $("#messages").append($("<li>").text(msg));
+    };
+
+    let sendFile = () => {
+      reader.onload = function(event) {
+        socket.emit("sendFile", user, event.target.result);
+      };
+      reader.readAsDataURL(document.querySelector("input[type=file]").files[0]);
+    };
+
+    let sendVideo = (msg, data) => {
+      var vidTag = `<video width="320" height="240" controls><source src="${data}"></video>`;
+      $("#messages")
+        .hide()
+        .append(
+          $('<li class="list-group-item active">').html(msg + " " + vidTag)
+        )
+        .fadeIn(300);
+      $("li.active")
+        .prev()
+        .removeClass("list-group-item active")
+        .addClass("list-group-item");
+      $("#messages").animate({
+        scrollTop: $("#messages")[0].scrollHeight
+      });
+    };
+
+    let sendPDF = (msg, data) => {
+      var pdfTag = `<embed src="${data}" width="600" height="500" pluginspage="http://www.adobe.com/products/acrobat/readstep2.html">`;
+      $("#messages")
+        .hide()
+        .append(
+          $('<li class="list-group-item active">').html(msg + " " + pdfTag)
+        )
+        .fadeIn(300);
+      $("li.active")
+        .prev()
+        .removeClass("list-group-item active")
+        .addClass("list-group-item");
+      $("#messages").animate({
+        scrollTop: $("#messages")[0].scrollHeight
+      });
+    };
+
+    let sendImage = (msg, data) => {
+      var imgTag = `<img style="width:100%;max-width:200px" id="myImg" src="${data}"/>`;
+      $("#messages")
+        .hide()
+        .append(
+          $('<li class="list-group-item active">').html(msg + " " + imgTag)
+        )
+        .fadeIn(300);
+      $("li.active")
+        .prev()
+        .removeClass("list-group-item active")
+        .addClass("list-group-item");
+      $("#messages").animate({
+        scrollTop: $("#messages")[0].scrollHeight
+      });
+    };
+
+    let sendAudio = (msg, data) => {
+      var audioTag = `<audio controls><source src="${data}"></audio>`;
+      $("#messages")
+        .hide()
+        .append(
+          $('<li class="list-group-item active">').html(msg + " " + audioTag)
+        )
+        .fadeIn(300);
+      $("li.active")
+        .prev()
+        .removeClass("list-group-item active")
+        .addClass("list-group-item");
+      $("#messages").animate({
+        scrollTop: $("#messages")[0].scrollHeight
+      });
+    };
+
+    let logout = () => {
+      socket.emit("logout", user);
     };
   </script>
 
-  <body>
+  <body onunload="logout()">
     <ul id="messages"></ul>
 
     <form id="main-form" type="textarea" action="javascript:sendForm();">
-      <input id="m" autocomplete="off" />
-
-      <button>Send</button>
+      <input id="m" autocomplete="off" /> <button>Send</button>
+      <input id="fileInput" type="file" onchange="sendFile();" />
     </form>
   </body>
 </html>

@@ -4,14 +4,12 @@
  *	Ofir Nesher - ID 310307
  *	Chen Arnon - ID 310310
  */
-let app = require("express")();
-let http = require("http").Server(app);
-let io = require("socket.io")(http);
-let fs = require("fs");
-let APP_PORT = process.env.PORT || 3000;
-
-// Array to store the list of users along with their respective socket id
-let users = [];
+let app = require("express")(),
+  http = require("http").Server(app),
+  io = require("socket.io")(http),
+  APP_PORT = process.env.PORT || 3000,
+  mongoose = require("mongoose"),
+  users = []; // stores a list of online users
 
 // First command to run. Loads the login.html file
 app.get("/", function(req, res) {
@@ -23,86 +21,185 @@ app.get("/chat", function(req, res) {
   res.sendFile(__dirname + "/chat.html");
 });
 
-// Port to listen on
-http.listen(APP_PORT, function() {
-  console.log(`listening on *:${APP_PORT}`);
-});
+/************** MongoDB - start ***************/
+mongoose.connect(
+  "mongodb://cloud:password1@ds115874.mlab.com:15874/chat", // "mongodb://localhost/chat"
+  { useNewUrlParser: true },
+  err => {
+    if (err) {
+      console.log(err);
+      return;
+    } else {
+      console.log("Conntected To Mongo Database!");
+      // Port to listen on
+      http.listen(APP_PORT, function() {
+        console.log(`listening on *:${APP_PORT}`);
+      });
+    }
+  }
+);
+
+let chatSchema = mongoose.Schema(
+  {
+    name: String,
+    password: String
+  },
+  { collection: "users" }
+);
+
+let Chat = mongoose.model("USER", chatSchema);
+/************** MongoDB - end ***************/
 
 /**
  * Request handler
  */
 io.on("connection", function(socket) {
-  //socket.on("removeUserFromList", removeUser);
-  socket.on("chat message", chatMessage);
   socket.on("login", loginMessage);
+  socket.on("chat message", chatMessage);
+  socket.on("sendFile", sendFile);
+
   //handling disconnects
-  socket.on("disconnect", function() {
-    let userToRemove = findUser(socket.id);
-    removeUser(userToRemove);
-    let msg = `${userToRemove.name} left the chat`;
-    io.sockets.emit("removeUserFromList", msg);
+  socket.on("logout", function(user) {
+    let userToRemove = findUser(user);
+    removeUserFromOnlineList(userToRemove);
   });
 });
 
-/******************************************************
- *					Helper functions				  *
- *******************************************************/
-let findUser = id => {
+/**************************************
+ *				Helper functions  				  *
+ **************************************/
+let findUser = user => {
   for (let i = 0; i < users.length; i++) {
-    if ((users[i].id = id)) {
+    if ((users[i].id = user.id)) {
       return users[i];
     }
   }
 };
 
-let loginMessage = user => {
-  let userFound = isUserExists(user);
+let sendFile = function(user, base64) {
+  let time = getTime();
+  let msg = `(${time}) ${user.name}: `;
+  let type = "";
 
-  if (!userFound) {
-    users.push(user);
-    // console.log(`user.id: ${user.id}`);
+  if (base64.includes("image")) {
+    type = "img";
+    // io.emit("img", msg, base64);
+  } else if (base64.includes("audio")) {
+    type = "audio";
+    // io.emit("audio", msg, base64);
+  } else if (base64.includes("video")) {
+    type = "video";
+    // io.emit("vid", msg, base64);
+  } else if (base64.includes("pdf")) {
+    type = "pdf";
+    // io.emit("pdf", msg, base64);
+  }
 
-    let newUserMessage = `${user.name} joined the chat`;
-    io.emit("loginSuccessful", newUserMessage);
-  } else {
-    let destination = "/";
-    let msg = `The username "${user.name}" already exists`;
-    io.to(user.id).emit("loginUnsuccessful", destination, msg);
+  if (type != "") {
+    io.emit("sendFile", msg, base64, type);
   }
 };
 
+let loginMessage = user => {
+  isUserExists(user);
+};
+
 let isUserExists = user => {
+  console.log("isUserExists");
+
+  Chat.findOne({ name: user.name }, function(err, results) {
+    if (err) {
+      throw err;
+    } else if (results) {
+      console.log(results);
+      passwordsMatch(user);
+    } else {
+      console.log("no results");
+      // new user registration
+      let newUser = new Chat({
+        name: user.name,
+        password: user.password
+      });
+
+      console.log("sadasdasdasdsadsadsadsad");
+      newUser.save(function(err) {
+        if (err) throw err;
+        users.push(user);
+        let msg = `${user.name} joined the chat`;
+        console.log(msg);
+        io.emit("loginSuccessful", msg);
+      });
+    }
+  });
+};
+
+let passwordsMatch = user => {
+  console.log("passwordsMatch");
+  let destination = "/";
+  let msg = `Incorrect password for "${user.name}"`;
+
+  Chat.findOne({ name: user.name, password: user.password }, function(
+    err,
+    results
+  ) {
+    if (err) {
+      throw err;
+    } else if (results) {
+      if (results.password === user.password) {
+        isUserOnline(user);
+      } else {
+        console.log(`Incorrect password for "${user.name}"`);
+        io.to(user.id).emit("loginUnsuccessful", destination, msg);
+      }
+    } else {
+      console.log(`Incorrect password for "${user.name}"`);
+      io.to(user.id).emit("loginUnsuccessful", destination, msg);
+    }
+  });
+};
+
+let isUserOnline = user => {
   for (let i = 0; i < users.length; i++) {
     if (users[i].name == user.name) {
       // console.log("username exists");
-      return true;
+      console.log(`"${user.name}" is already online`);
+      let msg = `"${user.name}" is already online`;
+      let destination = "/";
+      io.to(user.id).emit("loginUnsuccessful", destination, msg);
+      return;
     }
   }
 
-  // console.log("username doesn't exist");
-  return false;
+  console.log("valid login");
+  users.push(user);
+  msg = `${user.name} joined the chat`;
+  io.emit("loginSuccessful", msg);
 };
 
 // When a user logs out (by closing the window for example), a message is emitted to chat
 // Remove user JSON object from array, according to a given socket id
-let removeUser = user => {
+let removeUserFromOnlineList = user => {
+  let usernameToRemove;
+
   for (i = 0; i < users.length; i++) {
     if (users[i].name == user.name) {
-      // console.log("Removing " + user.name);
+      usernameToRemove = users[i].name;
       users.splice(i, 1);
       break;
     }
   }
 
-  let msg = `${user.name} left the chat`;
-  io.emit("chat message", msg);
+  if (usernameToRemove) {
+    let msg = `${usernameToRemove} left the chat`;
+    io.sockets.emit("chat message", msg);
+  }
 };
 
 /**
  *	When a user sends a message:
  *		First, we need to extract the first word and check if it's a special command.
- *	  If it's "\list", we send a the list of all online users (only for sender).
- *	  If it's "\private", we send a private message between to the user specified in the second word.
+ *	  If it's "\l", we send a the list of all online users (only for sender).
+ *	  If it's "\p", we send a private message between to the user specified in the second word.
  *		Otherwise, the message is visible to all users.
  */
 let chatMessage = (sender, msg) => {
@@ -112,11 +209,11 @@ let chatMessage = (sender, msg) => {
   let time = getTime();
 
   switch (firstWord) {
-    case "\\list":
+    case "\\l":
       listUsers(sender);
       break;
 
-    case "\\private":
+    case "\\p":
       let secondWord = splitString[1];
 
       if (secondWord == sender.name) {
@@ -131,7 +228,7 @@ let chatMessage = (sender, msg) => {
 
         if (recipient == undefined) {
           // if here then no recipient found
-          console.log(`Recipient ${secondWord} was not found`);
+          console.log(`Recipient '${secondWord}' was not found`);
           break; // do nothing
         }
       }
@@ -159,7 +256,7 @@ let chatMessage = (sender, msg) => {
 };
 
 /**
- * A user can request a list of all online users using the "\list" command
+ * A user can request a list of all online users using the "\l" command
  * That list is only visible to sender.
  */
 let listUsers = sender => {

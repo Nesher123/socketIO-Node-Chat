@@ -27,7 +27,16 @@
           id="userInput"
           type="text"
           name="name"
+          autocomplete="on"
         />
+
+        <input
+          placeholder="insert your password"
+          id="password"
+          type="password"
+          name="userPassword"
+        />
+
         <input
           class="send"
           id="register"
@@ -42,12 +51,15 @@
   <script>
     function isValid() {
       let username = document.getElementById("userInput").value;
+      let password = document.getElementById("password").value;
       let f = document.getElementById("frm");
+
       if (username.indexOf(" ") >= 0 || username == "") {
         alert("Username must be a single word, please try again");
         f.setAttribute("action", "/");
       } else {
         sessionStorage.setItem("username", username);
+        sessionStorage.setItem("password", password);
         f.setAttribute("action", "chat");
       }
     }
