@@ -13,6 +13,11 @@ let app = require("express")(),
 
 // First command to run. Loads the login.html file
 app.get("/", function(req, res) {
+  res.sendFile(__dirname + "/login.html");
+});
+
+// When login redirects to 'chat', the server loads chat.html
+app.get("/chat", function(req, res) {
   res.sendFile(__dirname + "/chat.html");
 });
 
@@ -54,21 +59,17 @@ io.on("connection", function(socket) {
   socket.on("sendFile", sendFile);
 
   //handling disconnects
-  socket.on("logout", function(user) {
-    console.log("logout2!");
-
-    if (isUserOnline(user) == true) {
-      removeUserFromOnlineList(user);
-    }
+  socket.on("logout", function(username) {
+    removeUserFromOnlineList(findUser(username));
   });
 });
 
 /**************************************
  *				Helper functions  				  *
  **************************************/
-let findUser = user => {
+let findUser = username => {
   for (let i = 0; i < users.length; i++) {
-    if ((users[i].id = user.id)) {
+    if (users[i].name == username) {
       return users[i];
     }
   }
@@ -127,17 +128,16 @@ let isUserExists = user => {
 let passwordsMatch = user => {
   console.log("passwordsMatch");
   let msg = `Incorrect password for "${user.name}"`;
+  let destination = "/";
 
-  Chat.findOne({ name: user.name, password: user.password }, function(
-    err,
-    results
-  ) {
+  Chat.findOne({ name: user.name }, function(err, results) {
     if (err) {
       throw err;
     } else if (results) {
       if (results.password === user.password) {
         if (isUserOnline(user)) {
-          io.to(`${socket.id}`).emit("loginUnsuccessful", msg);
+          msg = `"${user.name}" is already online`;
+          io.to(`${user.id}`).emit("loginUnsuccessful", msg, destination);
         } else {
           users.push(user);
           msg = `${user.name} joined the chat`;
@@ -146,7 +146,7 @@ let passwordsMatch = user => {
         }
       } else {
         console.log(`Incorrect password for "${user.name}"`);
-        io.emit("loginUnsuccessful", msg);
+        io.to(`${user.id}`).emit("loginUnsuccessful", msg, destination);
       }
     } else {
       console.log(msg);
@@ -170,7 +170,7 @@ let isUserOnline = user => {
 // When a user logs out (by closing the window for example), a message is emitted to chat
 // Remove user JSON object from array, according to a given socket id
 let removeUserFromOnlineList = user => {
-  for (i = 0; i < users.length; i++) {
+  for (let i = 0; i < users.length; i++) {
     if (users[i].name == user.name) {
       users.splice(i, 1);
       break;
@@ -179,7 +179,7 @@ let removeUserFromOnlineList = user => {
 
   let msg = `${user.name} left the chat`;
   console.log(msg);
-  io.sockets.emit("chat message", msg);
+  io.sockets.emit("chat message", msg, "undefined");
 };
 
 /**
@@ -256,9 +256,8 @@ let listUsers = sender => {
       onlineUsers += users[i].name;
     }
   }
-
   // send the list to the specific socket that typed it, according to its socketID
-  io.to(sender.id).emit("chat message", onlineUsers);
+  io.to(`${sender.id}`).emit("chat message", onlineUsers, sender.data);
 };
 
 // Concatenate message together with a timestamp and the username who has posted the message

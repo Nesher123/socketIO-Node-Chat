@@ -65,126 +65,46 @@
     </style>
   </head>
 
-  <body onunload="logout()">
-    <div id="login" style="display:block">
-      <h1>Hello! Please login with a username</h1>
+  <body onunload="logout();">
+    <ul id="messages"></ul>
 
-      Upload a File:<br />
-      <img
-        height="100"
-        width="100"
-        id="profile"
-        src="http://santetotal.com/wp-content/uploads/2014/05/default-user.png"
-        alt="profile-image"
-      />
-      <input type="file" name="myfile" id="fileToUpload" />
+    <form id="main-form" type="textarea" action="javascript:sendForm();">
+      <input id="m" autocomplete="off" />
+      <input id="fileInput" type="file" onchange="sendFile();" />
 
-      <br />
-      <br />
-      <br />
-
-      <form class="form" id="frm" onsubmit="return false;">
-        <input
-          placeholder="Please enter your name"
-          id="userInput"
-          type="text"
-          autocomplete="on"
-        />
-
-        <input
-          placeholder="insert your password"
-          id="password"
-          type="password"
-        />
-
-        <input class="send" id="register" type="submit" value="login" />
-      </form>
-    </div>
-
-    <div id="chat">
-      <ul id="messages"></ul>
-
-      <form id="main-form" type="textarea" action="javascript:sendForm();">
-        <input id="m" autocomplete="off" /> <button>Send</button>
-        <input id="fileInput" type="file" onchange="sendFile();" />
-      </form>
-    </div>
+      <button>Send</button>
+    </form>
   </body>
 
   <script>
-    $("#chat").hide();
-    const socket = io();
-    let imageSrc;
-    let user;
+    let socket = io();
+    let username = sessionStorage.getItem("username"),
+      password = sessionStorage.getItem("password"),
+      imageSrc = sessionStorage.getItem("imageSrc"),
+      user = {
+        name: username,
+        password: password,
+        data: imageSrc
+      };
 
-    $("#fileToUpload").change(function() {
-      readURL(this);
-      //other uploading proccess [server side by ajax and form-data ]
-    });
+    let successLogin = false;
 
-    function readURL(input) {
-      if (input.files && input.files[0]) {
-        var reader = new FileReader();
-
-        reader.onload = function(e) {
-          $("#profile").attr("src", e.target.result);
-          imageSrc = document.getElementById("profile").getAttribute("src");
-        };
-
-        reader.readAsDataURL(input.files[0]);
-      }
-    }
-
-    function isValid() {
-      let username = document.getElementById("userInput").value;
-      let password = document.getElementById("password").value;
-
-      if (username.indexOf(" ") >= 0 || username == "") {
-        alert("Username must be a single word, please try again");
-        return false;
-      } else if (password == "") {
-        alert("Please fill in a password, please try again");
-        return false;
-      } else {
-        console.log("isvalid == true");
-        return true;
-      }
-    }
-
-    /**********************************************/
-    /**********************************************/
+    console.log(imageSrc);
 
     socket.on("connect", () => {
-      $("#frm").submit(function() {
-        if (isValid() == true) {
-          let username = document.getElementById("userInput").value;
-          let password = document.getElementById("password").value;
-
-          user = {
-            name: username,
-            password: password,
-            id: socket.id,
-            data: imageSrc
-          };
-
-          // console.log("emit login");
-          socket.emit("login", user);
-        } else {
-          console.log("not valid");
-        }
-      });
+      user.id = socket.id;
+      socket.emit("login", user);
 
       // print public login message on user login
       socket.on("loginSuccessful", function(userIsOnline) {
         console.log("login successful");
-
-        $("#login").hide();
-        $("#chat").show();
+        successLogin = true;
         $("#messages").append($("<li>").text(userIsOnline));
       });
 
-      socket.on("loginUnsuccessful", function(msg) {
+      socket.on("loginUnsuccessful", function(msg, destination) {
         alert(msg);
+        window.location.href = destination;
       });
 
       socket.on("chat message", function(msg, imageSrc) {
@@ -224,7 +144,7 @@
     // print user message to the chat window
     let showOnChatWindow = (msg, imageSrc) => {
       let img = "";
-      if (imageSrc != undefined) {
+      if (imageSrc != "undefined") {
         img = `<img style="width:50px; height:50px;" id="myImg" src="${imageSrc}"/>`;
       }
 
@@ -318,8 +238,10 @@
     };
 
     let logout = () => {
-      console.log("logout!");
-      socket.emit("logout", user);
+      console.log("logout1!");
+      if (successLogin == true) {
+        socket.emit("logout", username);
+      }
     };
   </script>
 </html>
