@@ -1,6 +1,5 @@
 <!--
   Cloudio
-
   Developped by:
       Ofir Nesher - ID 310307
       Chen Arnon - ID 310310
@@ -8,15 +7,17 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Cloudio</title>
-    <meta charset="utf-8" />
-    <meta name="author" content="Ofir Nesher and Chen Arnon" />
+    <title>Cloudio chat server</title>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
     <style>
       /* {
-		margin: 0;
-		padding: 0;
-		box-sizing: border-box;
-	} */
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+      } */
 
       body {
         font: 13px Helvetica, Arial;
@@ -62,40 +63,132 @@
         background: #eee;
       }
     </style>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
   </head>
 
-  <script>
-    const socket = io();
-    let username = sessionStorage.getItem("username"),
-      password = sessionStorage.getItem("password"),
-      user = {
-        name: username,
-        password: password
-      };
+  <body onunload="logout()">
+    <div id="login" style="display:block">
+      <h1>Hello! Please login with a username</h1>
 
-    let reader = new FileReader();
+      Upload a File:<br />
+      <img
+        height="100"
+        width="100"
+        id="profile"
+        src="http://santetotal.com/wp-content/uploads/2014/05/default-user.png"
+        alt="profile-image"
+      />
+      <input type="file" name="myfile" id="fileToUpload" />
+
+      <br />
+      <br />
+      <br />
+
+      <form class="form" id="frm" onsubmit="return false;">
+        <input
+          placeholder="Please enter your name"
+          id="userInput"
+          type="text"
+          autocomplete="on"
+        />
+
+        <input
+          placeholder="insert your password"
+          id="password"
+          type="password"
+        />
+
+        <input class="send" id="register" type="submit" value="login" />
+      </form>
+    </div>
+
+    <div id="chat">
+      <ul id="messages"></ul>
+
+      <form id="main-form" type="textarea" action="javascript:sendForm();">
+        <input id="m" autocomplete="off" /> <button>Send</button>
+        <input id="fileInput" type="file" onchange="sendFile();" />
+      </form>
+    </div>
+  </body>
+
+  <script>
+    $("#chat").hide();
+    const socket = io();
+    let imageSrc;
+    let user;
+
+    $("#fileToUpload").change(function() {
+      readURL(this);
+      //other uploading proccess [server side by ajax and form-data ]
+    });
+
+    function readURL(input) {
+      if (input.files && input.files[0]) {
+        var reader = new FileReader();
+
+        reader.onload = function(e) {
+          $("#profile").attr("src", e.target.result);
+          imageSrc = document.getElementById("profile").getAttribute("src");
+        };
+
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
+
+    function isValid() {
+      let username = document.getElementById("userInput").value;
+      let password = document.getElementById("password").value;
+
+      if (username.indexOf(" ") >= 0 || username == "") {
+        alert("Username must be a single word, please try again");
+        return false;
+      } else if (password == "") {
+        alert("Please fill in a password, please try again");
+        return false;
+      } else {
+        console.log("isvalid == true");
+        return true;
+      }
+    }
+
+    /**********************************************/
+    /**********************************************/
 
     socket.on("connect", () => {
-      user.id = socket.id;
-      // console.log(`socket.id 1: ${user.id}`);
+      $("#frm").submit(function() {
+        if (isValid() == true) {
+          let username = document.getElementById("userInput").value;
+          let password = document.getElementById("password").value;
 
-      socket.emit("login", user);
+          user = {
+            name: username,
+            password: password,
+            id: socket.id,
+            data: imageSrc
+          };
+
+          // console.log("emit login");
+          socket.emit("login", user);
+        } else {
+          console.log("not valid");
+        }
+      });
 
       // print public login message on user login
       socket.on("loginSuccessful", function(userIsOnline) {
+        console.log("login successful");
+
+        $("#login").hide();
+        $("#chat").show();
         $("#messages").append($("<li>").text(userIsOnline));
       });
 
-      socket.on("loginUnsuccessful", function(destination, msg) {
+      socket.on("loginUnsuccessful", function(msg) {
         alert(msg);
-        window.location.href = destination;
       });
 
-      socket.on("chat message", function(msg) {
-        showOnChatWindow(msg);
+      socket.on("chat message", function(msg, imageSrc) {
+        showOnChatWindow(msg, imageSrc);
       });
 
       //if a users uploads a file via input[type=file], the base64-encoded image will be appended to the messages list
@@ -129,11 +222,27 @@
     };
 
     // print user message to the chat window
-    let showOnChatWindow = msg => {
-      $("#messages").append($("<li>").text(msg));
+    let showOnChatWindow = (msg, imageSrc) => {
+      let img = "";
+      if (imageSrc != undefined) {
+        img = `<img style="width:50px; height:50px;" id="myImg" src="${imageSrc}"/>`;
+      }
+
+      $("#messages")
+        .hide()
+        .append($('<li class="list-group-item active">').html(img + " " + msg))
+        .fadeIn(300);
+      $("li.active")
+        .prev()
+        .removeClass("list-group-item active")
+        .addClass("list-group-item");
+      $("#messages").animate({
+        scrollTop: $("#messages")[0].scrollHeight
+      });
     };
 
     let sendFile = () => {
+      var reader = new FileReader();
       reader.onload = function(event) {
         socket.emit("sendFile", user, event.target.result);
       };
@@ -209,16 +318,8 @@
     };
 
     let logout = () => {
+      console.log("logout!");
       socket.emit("logout", user);
     };
   </script>
-
-  <body onunload="logout()">
-    <ul id="messages"></ul>
-
-    <form id="main-form" type="textarea" action="javascript:sendForm();">
-      <input id="m" autocomplete="off" /> <button>Send</button>
-      <input id="fileInput" type="file" onchange="sendFile();" />
-    </form>
-  </body>
 </html>

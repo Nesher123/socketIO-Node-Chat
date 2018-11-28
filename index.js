@@ -13,11 +13,6 @@ let app = require("express")(),
 
 // First command to run. Loads the login.html file
 app.get("/", function(req, res) {
-  res.sendFile(__dirname + "/login.html");
-});
-
-// When login redirects to 'chat', the server loads chat.html
-app.get("/chat", function(req, res) {
   res.sendFile(__dirname + "/chat.html");
 });
 
@@ -30,7 +25,7 @@ mongoose.connect(
       console.log(err);
       return;
     } else {
-      console.log("Conntected To Mongo Database!");
+      console.log("Conntected to Mongo database!");
       // Port to listen on
       http.listen(APP_PORT, function() {
         console.log(`listening on *:${APP_PORT}`);
@@ -60,8 +55,11 @@ io.on("connection", function(socket) {
 
   //handling disconnects
   socket.on("logout", function(user) {
-    let userToRemove = findUser(user);
-    removeUserFromOnlineList(userToRemove);
+    console.log("logout2!");
+
+    if (isUserOnline(user) == true) {
+      removeUserFromOnlineList(user);
+    }
   });
 });
 
@@ -105,23 +103,16 @@ let loginMessage = user => {
 };
 
 let isUserExists = user => {
-  console.log("isUserExists");
-
   Chat.findOne({ name: user.name }, function(err, results) {
     if (err) {
       throw err;
     } else if (results) {
-      console.log(results);
+      console.log("this user exists already, so checking passwords...");
       passwordsMatch(user);
     } else {
-      console.log("no results");
-      // new user registration
-      let newUser = new Chat({
-        name: user.name,
-        password: user.password
-      });
+      console.log("new user registered");
+      let newUser = new Chat(user);
 
-      console.log("sadasdasdasdsadsadsadsad");
       newUser.save(function(err) {
         if (err) throw err;
         users.push(user);
@@ -135,7 +126,6 @@ let isUserExists = user => {
 
 let passwordsMatch = user => {
   console.log("passwordsMatch");
-  let destination = "/";
   let msg = `Incorrect password for "${user.name}"`;
 
   Chat.findOne({ name: user.name, password: user.password }, function(
@@ -146,14 +136,21 @@ let passwordsMatch = user => {
       throw err;
     } else if (results) {
       if (results.password === user.password) {
-        isUserOnline(user);
+        if (isUserOnline(user)) {
+          io.to(`${socket.id}`).emit("loginUnsuccessful", msg);
+        } else {
+          users.push(user);
+          msg = `${user.name} joined the chat`;
+          console.log(msg);
+          io.emit("loginSuccessful", msg);
+        }
       } else {
         console.log(`Incorrect password for "${user.name}"`);
-        io.to(user.id).emit("loginUnsuccessful", destination, msg);
+        io.emit("loginUnsuccessful", msg);
       }
     } else {
-      console.log(`Incorrect password for "${user.name}"`);
-      io.to(user.id).emit("loginUnsuccessful", destination, msg);
+      console.log(msg);
+      io.emit("loginUnsuccessful", msg);
     }
   });
 };
@@ -161,38 +158,28 @@ let passwordsMatch = user => {
 let isUserOnline = user => {
   for (let i = 0; i < users.length; i++) {
     if (users[i].name == user.name) {
-      // console.log("username exists");
-      console.log(`"${user.name}" is already online`);
       let msg = `"${user.name}" is already online`;
-      let destination = "/";
-      io.to(user.id).emit("loginUnsuccessful", destination, msg);
-      return;
+      console.log(msg);
+      return true;
     }
   }
 
-  console.log("valid login");
-  users.push(user);
-  msg = `${user.name} joined the chat`;
-  io.emit("loginSuccessful", msg);
+  return false;
 };
 
 // When a user logs out (by closing the window for example), a message is emitted to chat
 // Remove user JSON object from array, according to a given socket id
 let removeUserFromOnlineList = user => {
-  let usernameToRemove;
-
   for (i = 0; i < users.length; i++) {
     if (users[i].name == user.name) {
-      usernameToRemove = users[i].name;
       users.splice(i, 1);
       break;
     }
   }
 
-  if (usernameToRemove) {
-    let msg = `${usernameToRemove} left the chat`;
-    io.sockets.emit("chat message", msg);
-  }
+  let msg = `${user.name} left the chat`;
+  console.log(msg);
+  io.sockets.emit("chat message", msg);
 };
 
 /**
@@ -240,7 +227,8 @@ let chatMessage = (sender, msg) => {
         .to(`${recipient.id}`)
         .emit(
           "chat message",
-          `(${time}) PRIVATE from ${sender.name} to ${recipient.name}: ${msg}`
+          `(${time}) PRIVATE from ${sender.name} to ${recipient.name}: ${msg}`,
+          sender.data
         );
 
       break;
@@ -248,7 +236,7 @@ let chatMessage = (sender, msg) => {
     default:
       // send a public message
       let userMessage = getUserMessage(sender, msg, time);
-      io.emit("chat message", userMessage);
+      io.emit("chat message", userMessage, sender.data);
       break;
   }
 
