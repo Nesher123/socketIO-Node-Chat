@@ -7,7 +7,6 @@
 let app = require("express")(),
   http = require("http").Server(app),
   io = require("socket.io")(http),
-  helmet = require("helmet"),
   APP_PORT = process.env.PORT || 3000,
   mongoose = require("mongoose"),
   users = []; // stores a list of online users
