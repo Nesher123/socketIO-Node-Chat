@@ -7,6 +7,7 @@
 let app = require("express")(),
   http = require("http").Server(app),
   io = require("socket.io")(http),
+  helmet = require("helmet"),
   APP_PORT = process.env.PORT || 3000,
   mongoose = require("mongoose"),
   users = []; // stores a list of online users
@@ -18,6 +19,8 @@ let app = require("express")(),
 //   version: "2018-03-19",
 //   iam_apikey: "ykexr8u_PK2WVOI1yAxf0U3y02g-r16KjnILV9BYAaZn"
 // });
+
+app.use(helmet());
 
 // First command to run. Loads the login.html file
 app.get("/", function(req, res) {
@@ -69,20 +72,20 @@ io.on("connection", function(socket) {
   socket.on("sendFile", sendFile);
 
   //handling disconnects
-  socket.on("disconnect", function() {
-    if (addedUser) {
-      addedUser = false;
-      console.log(`addedUser: ${addedUser}`);
-      removeUserFromOnlineList(findUser(username));
-      // users.splice(users.indexOf(socket),1);
-      // let msg = `${socket.name} left the chat`;
-      // console.log(msg);
-      // io.sockets.emit("chat message", msg, "undefined");
-    }
-  });
-  // socket.on("logout", function(username) {
-  //   removeUserFromOnlineList(findUser(username));
+  // socket.on("disconnect", function() {
+  //   if (addedUser) {
+  //     addedUser = false;
+  //     console.log(`addedUser: ${addedUser}`);
+  //     removeUserFromOnlineList(findUser(username));
+  //     // users.splice(users.indexOf(socket),1);
+  //     // let msg = `${socket.name} left the chat`;
+  //     // console.log(msg);
+  //     // io.sockets.emit("chat message", msg, "undefined");
+  //   }
   // });
+  socket.on("logout", function(username) {
+    removeUserFromOnlineList(findUser(username));
+  });
 });
 
 /**************************************
