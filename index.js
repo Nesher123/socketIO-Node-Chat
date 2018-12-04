@@ -7,9 +7,18 @@
 let app = require("express")(),
   http = require("http").Server(app),
   io = require("socket.io")(http),
+  helmet = require("helmet"),
   APP_PORT = process.env.PORT || 3000,
   mongoose = require("mongoose"),
   users = []; // stores a list of online users
+
+// var ss = require("socket.io-stream");
+// var VisualRecognitionV3 = require("watson-developer-cloud/visual-recognition/v3");
+// var fs = require("fs");
+// var visualRecognition = new VisualRecognitionV3({
+//   version: "2018-03-19",
+//   iam_apikey: "ykexr8u_PK2WVOI1yAxf0U3y02g-r16KjnILV9BYAaZn"
+// });
 
 // First command to run. Loads the login.html file
 app.get("/", function(req, res) {
@@ -54,14 +63,27 @@ let Chat = mongoose.model("USER", chatSchema);
  * Request handler
  */
 io.on("connection", function(socket) {
+  var addedUser = false;
+
   socket.on("login", loginMessage);
   socket.on("chat message", chatMessage);
   socket.on("sendFile", sendFile);
 
   //handling disconnects
-  socket.on("logout", function(username) {
-    removeUserFromOnlineList(findUser(username));
+  socket.on("disconnect", function() {
+    if (addedUser) {
+      addedUser = false;
+      console.log(`addedUser: ${addedUser}`);
+      removeUserFromOnlineList(findUser(username));
+      // users.splice(users.indexOf(socket),1);
+      // let msg = `${socket.name} left the chat`;
+      // console.log(msg);
+      // io.sockets.emit("chat message", msg, "undefined");
+    }
   });
+  // socket.on("logout", function(username) {
+  //   removeUserFromOnlineList(findUser(username));
+  // });
 });
 
 /**************************************
@@ -116,6 +138,7 @@ let isUserExists = user => {
 
       newUser.save(function(err) {
         if (err) throw err;
+        addedUser = true;
         users.push(user);
         let msg = `${user.name} joined the chat`;
         console.log(msg);
@@ -139,6 +162,7 @@ let passwordsMatch = user => {
           msg = `"${user.name}" is already online`;
           io.to(`${user.id}`).emit("loginUnsuccessful", msg, destination);
         } else {
+          addedUser = true;
           users.push(user);
           msg = `${user.name} joined the chat`;
           console.log(msg);

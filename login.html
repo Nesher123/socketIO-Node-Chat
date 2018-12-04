@@ -20,7 +20,7 @@
         height="100"
         width="100"
         id="profile"
-        src="http://santetotal.com/wp-content/uploads/2014/05/default-user.png"
+        src="https://santetotal.com/wp-content/uploads/2014/05/default-user.png"
         alt="profile-image"
       />
 
@@ -63,7 +63,7 @@
 
         reader.onload = function(e) {
           $("#profile").attr("src", e.target.result);
-          imageSrc = document.getElementById("profile").getAttribute("src");
+            imageSrc = document.getElementById("profile").getAttribute("src");
         };
 
         reader.readAsDataURL(input.files[0]);
