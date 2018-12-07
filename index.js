@@ -20,7 +20,7 @@ let app = require("express")(),
 //   iam_apikey: "ykexr8u_PK2WVOI1yAxf0U3y02g-r16KjnILV9BYAaZn"
 // });
 
-app.use(helmet());
+//app.use(helmet());
 
 // First command to run. Loads the login.html file
 app.get("/", function(req, res) {
