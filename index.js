@@ -4,14 +4,14 @@
  *	Ofir Nesher - ID 310307
  *	Chen Arnon - ID 310310
  */
-let app = require("express")(),
-  http = require("http").Server(app),
+const express = require("express");
+let app = express();
+let http = require("http").Server(app),
   io = require("socket.io")(http),
   //helmet = require("helmet"),
   APP_PORT = process.env.PORT || 3000,
   mongoose = require("mongoose"),
   users = []; // stores a list of online users
-
 // var ss = require("socket.io-stream");
 // var VisualRecognitionV3 = require("watson-developer-cloud/visual-recognition/v3");
 // var fs = require("fs");
@@ -21,7 +21,16 @@ let app = require("express")(),
 // });
 
 //app.use(helmet());
-app.use(express.static('res'));
+app.use(express.static("res"));
+
+// app.use (function (req, res, next) {
+//   if (req.secure || process.env.BLUEMIX_REGION === undefined) {
+//     next();
+//   } else {
+//     logger.log('info', 'redirecting to https');
+//     res.redirect('https://' + req.headers.host + req.url);
+//   }
+// });
 
 // First command to run. Loads the login.html file
 app.get("/", function(req, res) {
