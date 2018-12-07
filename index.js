@@ -21,6 +21,7 @@ let app = require("express")(),
 // });
 
 //app.use(helmet());
+app.use(express.static('res'));
 
 // First command to run. Loads the login.html file
 app.get("/", function(req, res) {
