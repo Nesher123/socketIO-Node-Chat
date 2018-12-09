@@ -5,13 +5,13 @@
  *	Chen Arnon - ID 310310
  */
 const express = require("express");
-let app = express();
-let http = require("http").Server(app),
+let app = express(),
+  http = require("http").Server(app),
   io = require("socket.io")(http),
-  //helmet = require("helmet"),
   APP_PORT = process.env.PORT || 3000,
   mongoose = require("mongoose"),
-  users = []; // stores a list of online users
+  helmet = require("helmet");
+users = []; // stores a list of online users
 // var ss = require("socket.io-stream");
 // var VisualRecognitionV3 = require("watson-developer-cloud/visual-recognition/v3");
 // var fs = require("fs");
@@ -20,8 +20,17 @@ let http = require("http").Server(app),
 //   iam_apikey: "ykexr8u_PK2WVOI1yAxf0U3y02g-r16KjnILV9BYAaZn"
 // });
 
-//app.use(helmet());
 app.use(express.static("res"));
+app.use(helmet.hsts({ maxAge: 5184000 })); //60 days in seconds
+app.use(
+  //Helmet’s csp module helps set Content Security Policies.
+  helmet.contentSecurityPolicy({
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "maxcdn.bootstrapcdn.com"]
+    }
+  })
+);
 
 // app.use (function (req, res, next) {
 //   if (req.secure || process.env.BLUEMIX_REGION === undefined) {
