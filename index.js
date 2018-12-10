@@ -1,6 +1,6 @@
 /******
- *Cloudio
- *Developped by:
+ * Cloudio
+ * Developped by:
  *	Ofir Nesher - ID 310307
  *	Chen Arnon - ID 310310
  */
@@ -10,45 +10,41 @@ let app = express(),
   io = require("socket.io")(http),
   APP_PORT = process.env.PORT || 3000,
   mongoose = require("mongoose"),
-  helmet = require("helmet");
-users = []; // stores a list of online users
-// var ss = require("socket.io-stream");
-// var VisualRecognitionV3 = require("watson-developer-cloud/visual-recognition/v3");
-// var fs = require("fs");
-// var visualRecognition = new VisualRecognitionV3({
-//   version: "2018-03-19",
-//   iam_apikey: "ykexr8u_PK2WVOI1yAxf0U3y02g-r16KjnILV9BYAaZn"
-// });
+  helmet = require("helmet"),
+  users = []; // stores a list of online users
 
-app.use(express.static("res"));
+//app.use(express.static("res"));
 app.use(helmet.hsts({ maxAge: 5184000 })); //60 days in seconds
-app.use(
-  //Helmet’s csp module helps set Content Security Policies.
-  helmet.contentSecurityPolicy({
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "maxcdn.bootstrapcdn.com"]
-    }
-  })
-);
+app.use(helmet.xssFilter());
 
-// app.use (function (req, res, next) {
-//   if (req.secure || process.env.BLUEMIX_REGION === undefined) {
-//     next();
-//   } else {
-//     logger.log('info', 'redirecting to https');
-//     res.redirect('https://' + req.headers.host + req.url);
-//   }
-// });
+// app.use(
+//   helmet.contentSecurityPolicy({
+//     directives: {
+//       defaultSrc: ["'self'", "'data:'"],
+//       scriptSrc: [
+//         "'self'",
+//         "'sha256-MEU7pRnKWY9YlXa7bs3yu48kZchvhrTM+KXWGLLNWUY='"
+//       ],
+//       imgSrc: ["'self'", 'data:', 'blob:'],
+//       connectSrc: [
+//         "'self'",
+//         "wss://localhost:3000",
+//         "wss://cloudio.eu-de.mybluemix.net"
+//       ]
+//     },
+//     reportOnly: false
+//   })
+// );
 
-// First command to run. Loads the login.html file
+app.use(express.static("public"));
+
 app.get("/", function(req, res) {
-  res.sendFile(__dirname + "/login.html");
+  res.sendFile(__dirname + "/public/login.html");
 });
 
 // When login redirects to 'chat', the server loads chat.html
 app.get("/chat", function(req, res) {
-  res.sendFile(__dirname + "/chat.html");
+  res.sendFile(__dirname + "/public/chat.html");
 });
 
 /************** MongoDB - start ***************/
@@ -89,19 +85,6 @@ io.on("connection", function(socket) {
   socket.on("login", loginMessage);
   socket.on("chat message", chatMessage);
   socket.on("sendFile", sendFile);
-
-  //handling disconnects
-  // socket.on("disconnect", function() {
-  //   if (addedUser) {
-  //     addedUser = false;
-  //     console.log(`addedUser: ${addedUser}`);
-  //     removeUserFromOnlineList(findUser(username));
-  //     // users.splice(users.indexOf(socket),1);
-  //     // let msg = `${socket.name} left the chat`;
-  //     // console.log(msg);
-  //     // io.sockets.emit("chat message", msg, "undefined");
-  //   }
-  // });
   socket.on("logout", function(username) {
     removeUserFromOnlineList(findUser(username));
   });
