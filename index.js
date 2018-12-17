@@ -1,35 +1,37 @@
 /******
  * Cloudio
- * Developped by:
+ * developed by:
  *	Ofir Nesher - ID 310307
  *	Chen Arnon - ID 310310
  */
 const express = require("express");
 let app = express(),
-  cookiesSession = require('cookie-session'),
+  cookiesSession = require("cookie-session"),
   http = require("http").Server(app),
   io = require("socket.io")(http),
   APP_PORT = process.env.PORT || 3000,
   mongoose = require("mongoose"),
   helmet = require("helmet"),
-  // VisualRecognitionV3 = require("watson-developer-cloud/visual-recognition/v3"),
+  VisualRecognitionV3 = require("watson-developer-cloud/visual-recognition/v3"),
   users = []; // stores a list of online users
 
-// let visualRecognition = new VisualRecognitionV3({
-//   version: "2018-03-19",
-//   iam_apikey: "ykexr8u_PK2WVOI1yAxf0U3y02g-r16KjnILV9BYAaZn"
-// });
+let visualRecognition = new VisualRecognitionV3({
+  version: "2018-03-19",
+  iam_apikey: "ykexr8u_PK2WVOI1yAxf0U3y02g-r16KjnILV9BYAaZn"
+});
 
 app.use(helmet.hsts({ maxAge: 5184000 })); //60 days in seconds
 app.use(helmet.xssFilter());
 
-app.use(cookiesSession ({
-  name: 'session',
-  keys: [0],
+app.use(
+  cookiesSession({
+    name: "session",
+    keys: [0],
 
-  // Cookie Options
-  maxAge: 24 * 60 * 60 * 1000 // 24 hours
-}));
+    // Cookie Options
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  })
+);
 
 // app.use(
 //   helmet.contentSecurityPolicy({
@@ -94,8 +96,6 @@ let Chat = mongoose.model("USER", chatSchema);
  * Request handler
  */
 io.on("connection", function(socket) {
-  var addedUser = false;
-
   socket.on("login", loginMessage);
   socket.on("chat message", chatMessage);
   socket.on("sendFile", sendFile);
@@ -118,7 +118,6 @@ function detectFacesInPicture(images_file) {
   visualRecognition.detectFaces(params, function(err, response) {
     if (err) {
       console.log(err);
-      // console.log('asdasdasdasdasdasdsa');
     } else {
       console.log(JSON.stringify(response, null, 2));
       if (response.images[0].faces.length <= 0) {
@@ -167,17 +166,7 @@ let sendFile = function(user, base64) {
 };
 
 let loginMessage = user => {
-  //let isFace = detectFacesInPicture(user.data);
-  //console.log("isFace: " + isFace);
-
-  //  if (isFace == true) {
   isUserExists(user);
-  // } else {
-  //   let msg =
-  //     "Profile picture must contain a face. please choose a different one";
-  //   console.log(msg);
-  //   io.emit("loginUnsuccessful", msg, "/");
-  // }
 };
 
 let isUserExists = user => {
