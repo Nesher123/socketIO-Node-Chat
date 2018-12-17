@@ -1,12 +1,13 @@
 {
   "name": "socket-chat-example",
-  "version": "0.0.1",
-  "description": "my first socket.io app",
+  "version": "3.0.0",
+  "description": "cloudio chat socket.io",
   "author": "Ofir Nesher 310307 & Chen Arnon 310310",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
+    "cookie-session": "^2.0.0-beta.3",
     "debug": "^4.1.0",
     "express": "^4.15.2",
     "fresh": "^0.5.2",
