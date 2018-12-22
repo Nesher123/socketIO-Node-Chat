@@ -5,10 +5,12 @@
  *	Chen Arnon - ID 310310
  */
 const express = require("express");
+const saltRounds = 10;
 let app = express(),
   cookiesSession = require("cookie-session"),
   http = require("http").Server(app),
   io = require("socket.io")(http),
+  bcrypt = require("bcrypt"),
   APP_PORT = process.env.PORT || 3000,
   mongoose = require("mongoose"),
   helmet = require("helmet"),
@@ -102,6 +104,7 @@ io.on("connection", function(socket) {
   socket.on("logout", function(username) {
     removeUserFromOnlineList(findUser(username));
   });
+  
 });
 
 /**************************************
@@ -179,7 +182,7 @@ let isUserExists = user => {
     } else {
       console.log("new user registered");
       let newUser = new Chat(user);
-
+      newUser.password = bcrypt.hashSync(newUser.password, saltRounds);
       newUser.save(function(err) {
         if (err) throw err;
         addedUser = true;
@@ -201,7 +204,7 @@ let passwordsMatch = user => {
     if (err) {
       throw err;
     } else if (results) {
-      if (results.password === user.password) {
+      if (bcrypt.compareSync(user.password, results.password)) {
         if (isUserOnline(user)) {
           msg = `"${user.name}" is already online`;
           io.to(`${user.id}`).emit("loginUnsuccessful", msg, destination);
